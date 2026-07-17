@@ -1,5 +1,5 @@
-# Front End Companion - Build 006
+# Front End Companion — Proper Build 006
 
-Build 006 development package.
+This version reads the actual Monday Daily Grid page, locates roster rows from PDF coordinates, scans the shaded shift blocks, and reads Monday SCO required demand from the Daily Grid Summary.
 
-Targets: one-page A4 landscape output, stronger duplicate-name cleanup, Monday week-commencing date, and first-pass real shift/break extraction.
+Upload all six files to the repository root.

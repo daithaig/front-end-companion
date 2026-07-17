@@ -1,1 +1,1 @@
-@page{size:A4 landscape;margin:8mm}header,#setup,.toolbar,#output>p,.remove{display:none!important}body,main,#output,.sheet{background:#fff;margin:0;padding:0;border:0}.sheet{min-width:0!important}
+@page{size:A4 landscape;margin:6mm}header,#setup,#result>button,#stats{display:none!important}body,main,section,article{background:white;margin:0;padding:0;max-width:none}#result{display:block!important}.row{height:11mm}
