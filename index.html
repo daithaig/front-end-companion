@@ -1,1 +1,149 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Front End Companion</title><link rel="stylesheet" href="main.css"><link rel="stylesheet" href="print.css" media="print"></head><body><div class="wrap"><h1>Front End Companion</h1><p id="meta"></p><button onclick="window.print()">Print / Save PDF</button><div id="content"></div></div><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <title>Front End Companion</title>
+  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="print.css" media="print">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div>
+      <p class="eyebrow">STORE 2072 · ASCOT</p>
+      <h1>Front End Companion</h1>
+      <p class="subtitle">Build the week from your Woolworths reports.</p>
+    </div>
+    <button id="printButton" class="ghost-button" type="button">Print / Save PDF</button>
+  </header>
+
+  <main>
+    <section id="setupPanel" class="panel setup-panel">
+      <div class="section-heading">
+        <div>
+          <p class="step">WEEK SETUP</p>
+          <h2>Upload your reports</h2>
+        </div>
+        <span id="setupStatus" class="status-pill">Waiting for files</span>
+      </div>
+
+      <div class="upload-grid">
+        <article class="upload-card required">
+          <div class="upload-card-top">
+            <span class="file-number">01</span>
+            <span class="required-label">Required</span>
+          </div>
+          <h3>Daily Grid</h3>
+          <p>Upload the roster and deployment grid PDF.</p>
+          <label class="file-button">
+            Choose PDF
+            <input id="gridInput" type="file" accept=".pdf,application/pdf">
+          </label>
+          <div id="gridFile" class="file-result">No file selected</div>
+        </article>
+
+        <article class="upload-card required">
+          <div class="upload-card-top">
+            <span class="file-number">02</span>
+            <span class="required-label">Required</span>
+          </div>
+          <h3>Daily Grid Summary</h3>
+          <p>Upload the demand summary PDF.</p>
+          <label class="file-button">
+            Choose PDF
+            <input id="summaryInput" type="file" accept=".pdf,application/pdf">
+          </label>
+          <div id="summaryFile" class="file-result">No file selected</div>
+        </article>
+
+        <article class="upload-card">
+          <div class="upload-card-top">
+            <span class="file-number">03</span>
+            <span class="optional-label">Optional</span>
+          </div>
+          <h3>Training Status</h3>
+          <p>Add the team training spreadsheet when available.</p>
+          <label class="file-button secondary">
+            Choose file
+            <input id="trainingInput" type="file" accept=".csv,.xlsx,.xls">
+          </label>
+          <div id="trainingFile" class="file-result">No file selected</div>
+        </article>
+      </div>
+
+      <div class="build-row">
+        <div id="progressMessage" class="progress-message" aria-live="polite">
+          Select both required PDFs to continue.
+        </div>
+        <button id="buildButton" class="build-button" type="button" disabled>Build Week</button>
+      </div>
+    </section>
+
+    <section id="outputPanel" class="panel output-panel hidden">
+      <div class="section-heading">
+        <div>
+          <p class="step">BUILD 004</p>
+          <h2>Your week is ready</h2>
+        </div>
+        <button id="startAgainButton" class="ghost-button" type="button">Start again</button>
+      </div>
+
+      <div class="summary-strip">
+        <div><span>Team members found</span><strong id="teamCount">0</strong></div>
+        <div><span>Report pages read</span><strong id="pageCount">0</strong></div>
+        <div><span>Status</span><strong>Draft</strong></div>
+      </div>
+
+      <article class="daily-sheet">
+        <header class="sheet-header">
+          <div>
+            <p class="eyebrow">MONDAY · FRONT END DEPLOYMENT</p>
+            <h2 id="sheetDate">W/C —</h2>
+          </div>
+          <div class="store-badge">2072</div>
+        </header>
+
+        <div class="timeline-header">
+          <span>TEAM</span>
+          <div class="times">
+            <span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span><span>20</span>
+          </div>
+        </div>
+
+        <div id="teamRows" class="team-rows"></div>
+
+        <footer class="sheet-footer">
+          <span>STORE 2072</span>
+          <span>FRONT END COMPANION · BUILD 004</span>
+          <span id="footerWeek">W/C —</span>
+        </footer>
+      </article>
+
+      <div class="build-note">
+        <strong>Build 004 foundation:</strong>
+        the app now accepts the reports on your phone, reads PDF text locally in the browser,
+        finds likely team names and creates the first printable deployment draft.
+      </div>
+    </section>
+  </main>
+
+  <template id="teamRowTemplate">
+    <div class="team-row">
+      <div class="team-name">
+        <span class="initial"></span>
+        <span class="name"></span>
+      </div>
+      <div class="timeline">
+        <div class="deployment-bar"></div>
+        <span class="break tea">T</span>
+        <span class="break meal">M</span>
+        <span class="break tea tea-two">T</span>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
