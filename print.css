@@ -1,7 +1,1 @@
-
-@page { size: A4 landscape; margin: 8mm; }
-body { background: white; }
-.site-header, .setup-panel, .summary-strip, .output-panel > .section-heading, .build-note { display: none !important; }
-main, .output-panel, .daily-sheet { margin: 0; padding: 0; border: 0; width: 100%; }
-.output-panel { display: block !important; }
-.daily-sheet { page-break-inside: avoid; }
+@page{size:A4 landscape;margin:8mm}header,#setup,.toolbar,#output>p,.remove{display:none!important}body,main,#output,.sheet{background:#fff;margin:0;padding:0;border:0}.sheet{min-width:0!important}
