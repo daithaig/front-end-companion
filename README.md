@@ -1,1 +1,3 @@
-# Front End Companion — Build 007\n\nPreserves the working Build 006 shift parser and adds detected tea and meal markers from the Daily Grid PDF.\n
+# Front End Companion — Build 008
+
+Adds experimental visual break-marker detection while preserving the working shift parser.
