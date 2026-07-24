@@ -1,40 +1,51 @@
 <!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Front End Companion</title>
-<link rel="stylesheet" href="main.css?v=013">
-<link rel="stylesheet" href="print.css?v=013" media="print">
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Front End Companion</title>
+  <link rel="stylesheet" href="main.css?v=015">
+  <link rel="stylesheet" href="print.css?v=015" media="print">
+</head>
+<body>
 <header>
   <b>STORE 2072 · ASCOT</b>
   <h1>Front End Companion</h1>
-  <button onclick="print()">Print / Save PDF</button>
+  <button type="button" onclick="window.print()">Print / Save PDF</button>
 </header>
 <main>
   <section id="setup">
     <h2>Build Monday</h2>
-    <p class="buildnote">Build 013 · Row-locked meal break detection</p>
-    <label>Daily Grid PDF<input id="grid" type="file" accept=".pdf"></label>
-    <label>Daily Grid Summary PDF<input id="summary" type="file" accept=".pdf"></label>
+    <p class="buildnote">Build 015 · mobile-fit planner</p>
+    <label>Daily Grid PDF<input id="grid" type="file" accept="application/pdf,.pdf"></label>
+    <label>Daily Grid Summary PDF<input id="summary" type="file" accept="application/pdf,.pdf"></label>
     <p id="status">Choose both reports.</p>
-    <button id="build" disabled>Build Monday</button>
+    <button id="build" type="button" disabled>Build Monday</button>
   </section>
 
   <section id="result" hidden>
     <h2 id="date"></h2>
     <p id="stats"></p>
 
-    <article>
-      <div class="head">
-        <b>TEAM</b><span>06</span><span>08</span><span>10</span><span>12</span>
-        <span>14</span><span>16</span><span>18</span><span>20</span><span>22</span>
+    <div id="plannerViewport" class="planner-viewport">
+      <div id="plannerScaler" class="planner-scaler">
+        <article id="planner">
+          <div class="head">
+            <b>TEAM</b><span>06</span><span>08</span><span>10</span><span>12</span>
+            <span>14</span><span>16</span><span>18</span><span>20</span><span>22</span>
+          </div>
+          <div id="rows"></div>
+          <div class="legend"><span class="legend-meal">M</span> Meal break</div>
+          <div class="demand"><b>SCO TARGET</b><div id="sco"></div></div>
+          <footer>STORE 2072 · FRONT END COMPANION · BUILD 015</footer>
+        </article>
       </div>
-      <div id="rows"></div>
-      <div class="legend"><span class="legend-meal">M</span> Meal break</div>
-      <div class="demand"><b>SCO TARGET</b><div id="sco"></div></div>
-      <footer>STORE 2072 · FRONT END COMPANION · BUILD 013</footer>
-    </article>
+    </div>
 
-    <button onclick="location.reload()">Start again</button>
+    <button type="button" onclick="location.reload()">Start again</button>
   </section>
 </main>
-<script type="module" src="app.js?v=013"></script>
+<script type="module" src="app.js?v=015"></script>
+</body>
+</html>

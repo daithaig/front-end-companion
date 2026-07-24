@@ -165,7 +165,7 @@ async function readScoDemand(file) {
 
 $("build").onclick = async () => {
   try {
-    $("status").textContent = "Reading the reports and matching meal breaks…";
+    $("status").textContent = "Reading the reports and matching the grid meal markers…";
 
     const page = await readFirstPdfPage(state.grid);
     const roster = findRosterRows(page.items);
@@ -224,8 +224,27 @@ $("build").onclick = async () => {
     $("stats").textContent = `${renderedRows} roster rows · ${detectedMeals} meal breaks detected · ${page.pdf.numPages} grid pages`;
     $("setup").hidden = true;
     $("result").hidden = false;
+    requestAnimationFrame(() => requestAnimationFrame(fitPlannerToViewport));
   } catch (error) {
     console.error(error);
     $("status").textContent = "Could not read the reports. Please check both PDFs and try again.";
   }
 };
+
+
+function fitPlannerToViewport() {
+  const viewport = $("plannerViewport");
+  const scaler = $("plannerScaler");
+  const planner = $("planner");
+  if (!viewport || !scaler || !planner || $("result").hidden) return;
+
+  const available = Math.max(280, viewport.clientWidth);
+  const naturalWidth = 1000;
+  const scale = Math.min(1, available / naturalWidth);
+  scaler.style.transform = `scale(${scale})`;
+  scaler.style.width = `${naturalWidth}px`;
+  scaler.style.height = `${Math.ceil(planner.offsetHeight * scale)}px`;
+}
+
+window.addEventListener("resize", fitPlannerToViewport);
+window.addEventListener("orientationchange", () => setTimeout(fitPlannerToViewport, 150));

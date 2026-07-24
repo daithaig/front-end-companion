@@ -1,13 +1,18 @@
 *{box-sizing:border-box}
-body{margin:0;background:#eee;font-family:Arial,sans-serif;color:#111}
+html{background:#eee}
+body{margin:0;background:#eee;font-family:Arial,sans-serif;color:#111;overflow-x:hidden}
 header,main{padding:24px}
 header{background:white}
 h1{font-size:48px;margin:10px 0}
-button{background:#111;color:white;border:0;padding:14px 20px;font-weight:bold;margin:8px 0;cursor:pointer}
+button{background:#111;color:white;border:0;padding:14px 20px;font-weight:bold;margin:8px 0;cursor:pointer;border-radius:2px}
 button:disabled{opacity:.35;cursor:not-allowed}
-section,article{max-width:1200px;margin:auto;background:white;padding:24px}
+section{max-width:1200px;margin:auto;background:white;padding:24px}
 label{display:block;border:1px solid;padding:18px;margin:10px 0;font-weight:bold}
 input{display:block;margin-top:10px;width:100%}
+.buildnote{font-weight:bold}
+.planner-viewport{width:100%;overflow:hidden}
+.planner-scaler{transform-origin:top left}
+article{width:1000px;background:white;padding:24px}
 .head,.row,.demand{display:grid;grid-template-columns:220px repeat(9,1fr)}
 .head,.row{border-bottom:1px solid #bbb;min-height:48px;align-items:center}
 .head{font-size:11px;font-weight:bold}
@@ -27,8 +32,10 @@ input{display:block;margin-top:10px;width:100%}
 .dot{height:30px;text-align:center;font-size:10px;font-style:normal;font-weight:bold;padding-top:9px}
 .dot.on:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#111;margin-right:3px;vertical-align:1px}
 footer{padding-top:12px;font-size:10px;font-weight:bold}
-.buildnote{font-weight:bold}
 @media(max-width:700px){
-  article{min-width:1000px}
-  #result{overflow:auto}
+  header,main{padding:16px}
+  h1{font-size:40px;line-height:1.05}
+  section{padding:16px}
+  #result>h2{font-size:24px;margin-bottom:4px}
+  #stats{font-size:13px;margin-top:0}
 }

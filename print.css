@@ -1,3 +1,4 @@
 header,#setup,#result>button,.diagnostic{display:none!important}
-body,main,#result,article{background:white!important;margin:0!important;padding:0!important}
-article{max-width:none!important}
+html,body,main,#result,.planner-viewport,.planner-scaler,article{background:white!important;margin:0!important;padding:0!important;width:auto!important;height:auto!important;overflow:visible!important;transform:none!important}
+article{width:100%!important;max-width:none!important}
+@page{size:A4 landscape;margin:10mm}
