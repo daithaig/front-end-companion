@@ -1,24 +1,198 @@
-const $=x=>document.getElementById(x),S={};["grid","summary"].forEach(id=>$(id).onchange=e=>{S[id]=e.target.files[0];$("build").disabled=!(S.grid&&S.summary)});async function pdfPage(file){const p=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");p.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";const pdf=await p.getDocument({data:await file.arrayBuffer()}).promise,page=await pdf.getPage(1),vp=page.getViewport({scale:2}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;const ctx=c.getContext("2d",{willReadFrequently:true});await page.render({canvasContext:ctx,viewport:vp}).promise;const tc=await page.getTextContent();return{pdf,vp,ctx,items:tc.items.map(i=>({s:i.str.trim(),x:i.transform[4]*2,y:vp.height-i.transform[5]*2})).filter(i=>i.s)}}function rows(items){let a=[];for(const i of items){if(!/^[A-Z][A-Za-z' .-]{4,}$/.test(i.s)||/Daily|Grid|Report|FRONT|ASCOT|Required|Scheduled|Variance|Team Member|Manager|Checkout|Smokeshop|Date|Total|Leave/.test(i.s))continue;const d=items.find(x=>Math.abs(x.y-i.y)<8&&/^\d+\.\d{2}$/.test(x.s)&&x.x>i.x);if(d)a.push({name:i.s.replace(/\s+[A-Z]\s+/," "),y:i.y})}return a.filter((r,n)=>!a.slice(0,n).some(x=>x.name===r.name&&Math.abs(x.y-r.y)<8))}function dark(ctx,x,y){const d=ctx.getImageData(x|0,y|0,1,1).data;return(d[0]+d[1]+d[2])/3<205}function shift(ctx,y,x0,x1){let runs=[],on=0,s=0;for(let x=x0;x<x1;x+=2){let k=0;for(let dy=-4;dy<=4;dy+=2)if(dark(ctx,x,y+dy))k++;if(k>1&&!on){on=1;s=x}if(k<2&&on){if(x-s>20)runs.push([s,x]);on=0}}return runs.length?[Math.min(...runs.map(r=>r[0])),Math.max(...runs.map(r=>r[1]))]:null}function mealBreaks(items,rowY,a,b){
-  const candidates=items
-    .filter(i=>/^X$/i.test(i.s)&&i.x>=a&&i.x<=b&&Math.abs(i.y-rowY)>=16&&Math.abs(i.y-rowY)<=42)
-    .sort((u,v)=>u.y-v.y||u.x-v.x);
 
-  const rows=[];
-  for(const item of candidates){
-    let row=rows.find(r=>Math.abs(r.y-item.y)<8);
-    if(!row){
-      row={y:item.y,items:[]};
-      rows.push(row);
-    }
-    row.items.push(item);
+const $=x=>document.getElementById(x),S={};
+["grid","summary"].forEach(id=>$(id).onchange=e=>{
+  S[id]=e.target.files[0];
+  $("build").disabled=!(S.grid&&S.summary);
+});
+
+let diagnosticPayload=null;
+
+async function pdfPage(file){
+  const p=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  p.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+  const pdf=await p.getDocument({data:await file.arrayBuffer()}).promise;
+  const page=await pdf.getPage(1);
+  const vp=page.getViewport({scale:2});
+  const c=document.createElement("canvas");
+  c.width=vp.width;c.height=vp.height;
+  const ctx=c.getContext("2d",{willReadFrequently:true});
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  const tc=await page.getTextContent();
+  const items=tc.items.map((i,index)=>({
+    index,
+    s:i.str.trim(),
+    x:i.transform[4]*2,
+    y:vp.height-i.transform[5]*2,
+    w:(i.width||0)*2,
+    h:Math.abs(i.transform[3]||0)*2,
+    transform:i.transform
+  })).filter(i=>i.s);
+  const opList=await page.getOperatorList();
+  return{pdf,page,vp,ctx,canvas:c,items,opList};
+}
+
+function rows(items){
+  let a=[];
+  for(const i of items){
+    if(!/^[A-Z][A-Za-z' .-]{4,}$/.test(i.s)||
+       /Daily|Grid|Report|FRONT|ASCOT|Required|Scheduled|Variance|Team Member|Manager|Checkout|Smokeshop|Date|Total|Leave/.test(i.s))continue;
+    const d=items.find(x=>Math.abs(x.y-i.y)<8&&/^\d+\.\d{2}$/.test(x.s)&&x.x>i.x);
+    if(d)a.push({name:i.s.replace(/\s+[A-Z]\s+/," "),y:i.y,x:i.x});
   }
+  return a.filter((r,n)=>!a.slice(0,n).some(x=>x.name===r.name&&Math.abs(x.y-r.y)<8));
+}
 
-  const paired=rows
-    .filter(r=>r.items.length>=2)
-    .sort((u,v)=>Math.abs(u.y-rowY)-Math.abs(v.y-rowY));
+function dark(ctx,x,y){
+  const d=ctx.getImageData(x|0,y|0,1,1).data;
+  return(d[0]+d[1]+d[2])/3<205;
+}
 
-  if(!paired.length) return [];
+function shift(ctx,y,x0,x1){
+  let runs=[],on=0,s=0;
+  for(let x=x0;x<x1;x+=2){
+    let k=0;
+    for(let dy=-4;dy<=4;dy+=2)if(dark(ctx,x,y+dy))k++;
+    if(k>1&&!on){on=1;s=x}
+    if(k<2&&on){if(x-s>20)runs.push([s,x]);on=0}
+  }
+  return runs.length?[Math.min(...runs.map(r=>r[0])),Math.max(...runs.map(r=>r[1]))]:null;
+}
 
-  const chosen=paired[0].items.sort((u,v)=>u.x-v.x);
-  return [chosen.reduce((sum,item)=>sum+item.x,0)/chosen.length];
-}function pct(x,a,b){return Math.max(0,Math.min(100,(x-a)/(b-a)*100))}async function demand(file){const p=await pdfPage(file),t=p.items.map(x=>x.s).join(" "),m=t.match(/Self Checkout\s+Required\s+\d+\.\d+\s+((?:\d+\s+){50,80})/i);if(!m)return Array(18).fill(0);const n=m[1].trim().split(/\s+/).map(Number),o=[];for(let h=0;h<18;h++)o.push(Math.max(0,...n.slice(h*4,h*4+4)));return o}$("build").onclick=async()=>{try{$("status").textContent="Reading reports…";const p=await pdfPage(S.grid),r=rows(p.items),x0=p.vp.width*.205,x1=p.vp.width*.98;$("rows").innerHTML="";r.slice(0,15).forEach(v=>{const sh=shift(p.ctx,v.y+12,x0,x1);if(!sh)return;const e=document.createElement("div");e.className="row";const mb=mealBreaks(p.items,v.y,sh[0],sh[1]),marks=mb.slice(0,1).map(x=>`<i class="break meal" style="left:${pct(x,x0,x1)}%">M</i>`).join("");e.innerHTML=`<div class="person">${v.name}</div><div class="timeline"><i class="bar" style="left:${pct(sh[0],x0,x1)}%;right:${100-pct(sh[1],x0,x1)}%"></i>${marks}</div>`;$("rows").appendChild(e)});const txt=p.items.map(x=>x.s).join(" "),dm=txt.match(/Date:\s*(Monday,\s*\d+\s+\w+\s+\d{4})/i);$("date").textContent=dm?dm[1]:"Monday";const d=await demand(S.summary);$("sco").innerHTML=d.map(n=>`<i class="dot ${n?"on":""}"></i>`).join("");$("stats").textContent=`${document.querySelectorAll(".row").length} roster rows · ${p.pdf.numPages} grid pages`;$("setup").hidden=true;$("result").hidden=false}catch(e){console.error(e);$("status").textContent="Could not read the reports."}}
+function pct(x,a,b){return Math.max(0,Math.min(100,(x-a)/(b-a)*100))}
+
+async function demand(file){
+  const p=await pdfPage(file);
+  const t=p.items.map(x=>x.s).join(" ");
+  const m=t.match(/Self Checkout\s+Required\s+\d+\.\d+\s+((?:\d+\s+){50,80})/i);
+  if(!m)return Array(18).fill(0);
+  const n=m[1].trim().split(/\s+/).map(Number),o=[];
+  for(let h=0;h<18;h++)o.push(Math.max(0,...n.slice(h*4,h*4+4)));
+  return o;
+}
+
+function safeArg(value){
+  if(value===null||value===undefined||typeof value==="number"||typeof value==="string"||typeof value==="boolean")return value;
+  if(ArrayBuffer.isView(value))return Array.from(value).slice(0,200);
+  if(Array.isArray(value))return value.slice(0,50).map(safeArg);
+  if(typeof value==="object"){
+    const out={};
+    Object.keys(value).slice(0,30).forEach(k=>{
+      try{out[k]=safeArg(value[k])}catch{}
+    });
+    return out;
+  }
+  return String(value);
+}
+
+function buildDiagnostics(p, roster, x0, x1){
+  const textRows=roster.map((r,index)=>{
+    const nearby=p.items
+      .filter(i=>Math.abs(i.y-r.y)<=42)
+      .sort((a,b)=>a.y-b.y||a.x-b.x)
+      .map(i=>({
+        text:i.s,
+        x:+i.x.toFixed(1),
+        y:+i.y.toFixed(1),
+        deltaY:+(i.y-r.y).toFixed(1),
+        width:+i.w.toFixed(1),
+        height:+i.h.toFixed(1)
+      }));
+    return{
+      index:index+1,
+      name:r.name,
+      rowX:+r.x.toFixed(1),
+      rowY:+r.y.toFixed(1),
+      shift:shift(p.ctx,r.y+12,x0,x1),
+      nearbyText:nearby
+    };
+  });
+
+  const operatorCounts={};
+  p.opList.fnArray.forEach(fn=>operatorCounts[fn]=(operatorCounts[fn]||0)+1);
+
+  const sampledOperators=p.opList.fnArray.map((fn,index)=>({
+    index,
+    fn,
+    args:safeArg(p.opList.argsArray[index])
+  })).slice(0,2500);
+
+  return{
+    build:"012-diagnostic",
+    generatedAt:new Date().toISOString(),
+    page:{width:p.vp.width,height:p.vp.height,pages:p.pdf.numPages},
+    timeline:{x0,x1},
+    textItemCount:p.items.length,
+    operatorCount:p.opList.fnArray.length,
+    operatorCounts,
+    rosterRows:textRows,
+    textItems:p.items.map(i=>({
+      index:i.index,text:i.s,x:+i.x.toFixed(1),y:+i.y.toFixed(1),
+      width:+i.w.toFixed(1),height:+i.h.toFixed(1)
+    })),
+    sampledOperators
+  };
+}
+
+function renderDebugTable(payload){
+  const box=$("debugReport");
+  box.innerHTML="";
+  payload.rosterRows.forEach(row=>{
+    const section=document.createElement("details");
+    section.open=row.index<=2;
+    const summary=document.createElement("summary");
+    summary.textContent=`${row.index}. ${row.name} · row Y ${row.rowY}`;
+    section.appendChild(summary);
+    const pre=document.createElement("pre");
+    pre.textContent=row.nearbyText.map(i=>
+      `${String(i.deltaY).padStart(6)}  x ${String(i.x).padStart(7)}  ${i.text}`
+    ).join("\n")||"No nearby text objects.";
+    section.appendChild(pre);
+    box.appendChild(section);
+  });
+}
+
+$("downloadDebug").onclick=()=>{
+  if(!diagnosticPayload)return;
+  const blob=new Blob([JSON.stringify(diagnosticPayload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="front-end-companion-build-012-diagnostic.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+
+$("build").onclick=async()=>{
+  try{
+    $("status").textContent="Reading reports and inspecting PDF structure…";
+    const p=await pdfPage(S.grid),r=rows(p.items),x0=p.vp.width*.205,x1=p.vp.width*.98;
+    $("rows").innerHTML="";
+    r.slice(0,15).forEach(v=>{
+      const sh=shift(p.ctx,v.y+12,x0,x1);
+      if(!sh)return;
+      const e=document.createElement("div");
+      e.className="row";
+      e.innerHTML=`<div class="person">${v.name}</div>
+        <div class="timeline"><i class="bar" style="left:${pct(sh[0],x0,x1)}%;right:${100-pct(sh[1],x0,x1)}%"></i></div>`;
+      $("rows").appendChild(e);
+    });
+
+    const txt=p.items.map(x=>x.s).join(" ");
+    const dm=txt.match(/Date:\s*(Monday,\s*\d+\s+\w+\s+\d{4})/i);
+    $("date").textContent=dm?dm[1]:"Monday";
+    const d=await demand(S.summary);
+    $("sco").innerHTML=d.map(n=>`<i class="dot ${n?"on":""}"></i>`).join("");
+    $("stats").textContent=`${document.querySelectorAll(".row").length} roster rows · ${p.pdf.numPages} grid pages`;
+
+    diagnosticPayload=buildDiagnostics(p,r.slice(0,15),x0,x1);
+    renderDebugTable(diagnosticPayload);
+    $("diagStats").textContent=
+      `${diagnosticPayload.textItemCount} text objects · ${diagnosticPayload.operatorCount} drawing operations`;
+
+    $("setup").hidden=true;
+    $("result").hidden=false;
+  }catch(e){
+    console.error(e);
+    $("status").textContent="Could not read the reports. Please check both PDFs and try again.";
+  }
+};
