@@ -1,5 +1,13 @@
+const BUILD = "018";
+const PLANNER_WIDTH = 1000;
+
 const $ = id => document.getElementById(id);
 const state = {};
+
+$("buildNote").textContent = `Build ${BUILD} · source-aligned refinement`;
+$("plannerFooter").textContent = `STORE 2072 · FRONT END COMPANION · BUILD ${BUILD}`;
+$("printButton").addEventListener("click", () => window.print());
+$("startAgain").addEventListener("click", () => location.reload());
 
 ["grid", "summary"].forEach(id => {
   $(id).onchange = event => {
@@ -149,6 +157,23 @@ function detectMealBreaks(items, row, timelineStart, timelineEnd) {
     });
 }
 
+function createPersonCell(name, mealText) {
+  const person = document.createElement("div");
+  person.className = "person";
+
+  const strong = document.createElement("strong");
+  strong.textContent = name;
+  person.appendChild(strong);
+
+  if (mealText) {
+    const small = document.createElement("small");
+    small.textContent = `Meal ${mealText}`;
+    person.appendChild(small);
+  }
+
+  return person;
+}
+
 async function readScoDemand(file) {
   const page = await readFirstPdfPage(file);
   const text = page.items.map(item => item.text).join(" ");
@@ -199,16 +224,14 @@ $("build").onclick = async () => {
         ? meals.map(meal => `${minutesToClock(meal.startMinutes)}–${minutesToClock(meal.endMinutes)}`).join(", ")
         : "";
 
-      row.innerHTML = `
-        <div class="person">
-          <strong>${person.name}</strong>
-          ${mealText ? `<small>Meal ${mealText}</small>` : ""}
-        </div>
-        <div class="timeline">
-          <i class="bar" style="left:${positionPercent(shift[0], timelineStart, timelineEnd)}%;right:${100 - positionPercent(shift[1], timelineStart, timelineEnd)}%"></i>
-          ${mealMarkup}
-        </div>`;
+      const timeline = document.createElement("div");
+      timeline.className = "timeline";
+      timeline.innerHTML = `
+        <i class="bar" style="left:${positionPercent(shift[0], timelineStart, timelineEnd)}%;right:${100 - positionPercent(shift[1], timelineStart, timelineEnd)}%"></i>
+        ${mealMarkup}`;
 
+      row.appendChild(createPersonCell(person.name, mealText));
+      row.appendChild(timeline);
       rowsContainer.appendChild(row);
     });
 
@@ -239,11 +262,11 @@ function fitPlannerToViewport() {
   if (!viewport || !scaler || !planner || $("result").hidden) return;
 
   const available = Math.max(280, viewport.clientWidth);
-  const naturalWidth = 1000;
-  const scale = Math.min(1, available / naturalWidth);
-  scaler.style.transform = `scale(${scale})`;
-  scaler.style.width = `${naturalWidth}px`;
+  const scale = Math.min(1, available / PLANNER_WIDTH);
+  scaler.style.setProperty("--planner-scale", String(scale));
+  scaler.style.width = `${PLANNER_WIDTH}px`;
   scaler.style.height = `${Math.ceil(planner.offsetHeight * scale)}px`;
+  viewport.style.setProperty("--scaled-width", `${Math.ceil(PLANNER_WIDTH * scale)}px`);
 }
 
 window.addEventListener("resize", fitPlannerToViewport);

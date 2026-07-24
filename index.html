@@ -4,23 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Front End Companion</title>
-  <link rel="stylesheet" href="main.css?v=017">
-  <link rel="stylesheet" href="print.css?v=017" media="print">
+  <link rel="stylesheet" href="main.css?v=018">
+  <link rel="stylesheet" href="print.css?v=018" media="print">
 </head>
 <body>
 <header>
   <b>STORE 2072 · ASCOT</b>
   <h1>Front End Companion</h1>
-  <button type="button" onclick="window.print()">Print / Save PDF</button>
+  <button type="button" id="printButton">Print / Save PDF</button>
 </header>
 <main>
   <section id="setup">
     <h2>Build Monday</h2>
-    <p class="buildnote">Build 017 · quiet print refinement</p>
+    <p class="buildnote" id="buildNote"></p>
     <label>Daily Grid PDF<input id="grid" type="file" accept="application/pdf,.pdf"></label>
     <label>Daily Grid Summary PDF<input id="summary" type="file" accept="application/pdf,.pdf"></label>
-    <p id="status">Choose both reports.</p>
+    <p id="status" aria-live="polite">Choose both reports.</p>
     <button id="build" type="button" disabled>Build Monday</button>
   </section>
 
@@ -38,14 +41,14 @@
           <div id="rows"></div>
           <div class="legend"><span class="legend-meal">M</span> Meal break</div>
           <div class="demand"><b>SCO TARGET</b><div id="sco"></div></div>
-          <footer>STORE 2072 · FRONT END COMPANION · BUILD 017</footer>
+          <footer id="plannerFooter"></footer>
         </article>
       </div>
     </div>
 
-    <button type="button" onclick="location.reload()">Start again</button>
+    <button type="button" id="startAgain">Start again</button>
   </section>
 </main>
-<script type="module" src="app.js?v=017"></script>
+<script type="module" src="app.js?v=018"></script>
 </body>
 </html>
