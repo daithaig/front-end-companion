@@ -1,198 +1,231 @@
+const $ = id => document.getElementById(id);
+const state = {};
 
-const $=x=>document.getElementById(x),S={};
-["grid","summary"].forEach(id=>$(id).onchange=e=>{
-  S[id]=e.target.files[0];
-  $("build").disabled=!(S.grid&&S.summary);
+["grid", "summary"].forEach(id => {
+  $(id).onchange = event => {
+    state[id] = event.target.files[0];
+    $("build").disabled = !(state.grid && state.summary);
+  };
 });
 
-let diagnosticPayload=null;
+async function readFirstPdfPage(file) {
+  const pdfjs = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
 
-async function pdfPage(file){
-  const p=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
-  p.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
-  const pdf=await p.getDocument({data:await file.arrayBuffer()}).promise;
-  const page=await pdf.getPage(1);
-  const vp=page.getViewport({scale:2});
-  const c=document.createElement("canvas");
-  c.width=vp.width;c.height=vp.height;
-  const ctx=c.getContext("2d",{willReadFrequently:true});
-  await page.render({canvasContext:ctx,viewport:vp}).promise;
-  const tc=await page.getTextContent();
-  const items=tc.items.map((i,index)=>({
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  await page.render({ canvasContext: context, viewport }).promise;
+  const textContent = await page.getTextContent();
+  const items = textContent.items.map((item, index) => ({
     index,
-    s:i.str.trim(),
-    x:i.transform[4]*2,
-    y:vp.height-i.transform[5]*2,
-    w:(i.width||0)*2,
-    h:Math.abs(i.transform[3]||0)*2,
-    transform:i.transform
-  })).filter(i=>i.s);
-  const opList=await page.getOperatorList();
-  return{pdf,page,vp,ctx,canvas:c,items,opList};
+    text: item.str.trim(),
+    x: item.transform[4] * 2,
+    y: viewport.height - item.transform[5] * 2,
+    width: (item.width || 0) * 2,
+    height: Math.abs(item.transform[3] || 0) * 2
+  })).filter(item => item.text);
+
+  return { pdf, viewport, context, items };
 }
 
-function rows(items){
-  let a=[];
-  for(const i of items){
-    if(!/^[A-Z][A-Za-z' .-]{4,}$/.test(i.s)||
-       /Daily|Grid|Report|FRONT|ASCOT|Required|Scheduled|Variance|Team Member|Manager|Checkout|Smokeshop|Date|Total|Leave/.test(i.s))continue;
-    const d=items.find(x=>Math.abs(x.y-i.y)<8&&/^\d+\.\d{2}$/.test(x.s)&&x.x>i.x);
-    if(d)a.push({name:i.s.replace(/\s+[A-Z]\s+/," "),y:i.y,x:i.x});
+function findRosterRows(items) {
+  const rows = [];
+  for (const item of items) {
+    if (!/^[A-Z][A-Za-z' .-]{4,}$/.test(item.text)) continue;
+    if (/Daily|Grid|Report|FRONT|ASCOT|Required|Scheduled|Variance|Team Member|Manager|Checkout|Smokeshop|Date|Total|Leave/.test(item.text)) continue;
+
+    const hours = items.find(other =>
+      Math.abs(other.y - item.y) < 8 &&
+      /^\d+\.\d{2}$/.test(other.text) &&
+      other.x > item.x
+    );
+
+    if (hours) {
+      rows.push({
+        name: item.text.replace(/\s+[A-Z]\s+/, " "),
+        y: item.y,
+        x: item.x,
+        paidHours: Number(hours.text)
+      });
+    }
   }
-  return a.filter((r,n)=>!a.slice(0,n).some(x=>x.name===r.name&&Math.abs(x.y-r.y)<8));
+
+  return rows.filter((row, index) =>
+    !rows.slice(0, index).some(previous => previous.name === row.name && Math.abs(previous.y - row.y) < 8)
+  );
 }
 
-function dark(ctx,x,y){
-  const d=ctx.getImageData(x|0,y|0,1,1).data;
-  return(d[0]+d[1]+d[2])/3<205;
+function pixelIsDark(context, x, y) {
+  const rgba = context.getImageData(x | 0, y | 0, 1, 1).data;
+  return (rgba[0] + rgba[1] + rgba[2]) / 3 < 205;
 }
 
-function shift(ctx,y,x0,x1){
-  let runs=[],on=0,s=0;
-  for(let x=x0;x<x1;x+=2){
-    let k=0;
-    for(let dy=-4;dy<=4;dy+=2)if(dark(ctx,x,y+dy))k++;
-    if(k>1&&!on){on=1;s=x}
-    if(k<2&&on){if(x-s>20)runs.push([s,x]);on=0}
+function detectShift(context, y, timelineStart, timelineEnd) {
+  const runs = [];
+  let active = false;
+  let start = 0;
+
+  for (let x = timelineStart; x < timelineEnd; x += 2) {
+    let darkSamples = 0;
+    for (let offsetY = -4; offsetY <= 4; offsetY += 2) {
+      if (pixelIsDark(context, x, y + offsetY)) darkSamples++;
+    }
+
+    if (darkSamples > 1 && !active) {
+      active = true;
+      start = x;
+    }
+    if (darkSamples < 2 && active) {
+      if (x - start > 20) runs.push([start, x]);
+      active = false;
+    }
   }
-  return runs.length?[Math.min(...runs.map(r=>r[0])),Math.max(...runs.map(r=>r[1]))]:null;
+
+  if (active && timelineEnd - start > 20) runs.push([start, timelineEnd]);
+  if (!runs.length) return null;
+
+  return [
+    Math.min(...runs.map(run => run[0])),
+    Math.max(...runs.map(run => run[1]))
+  ];
 }
 
-function pct(x,a,b){return Math.max(0,Math.min(100,(x-a)/(b-a)*100))}
-
-async function demand(file){
-  const p=await pdfPage(file);
-  const t=p.items.map(x=>x.s).join(" ");
-  const m=t.match(/Self Checkout\s+Required\s+\d+\.\d+\s+((?:\d+\s+){50,80})/i);
-  if(!m)return Array(18).fill(0);
-  const n=m[1].trim().split(/\s+/).map(Number),o=[];
-  for(let h=0;h<18;h++)o.push(Math.max(0,...n.slice(h*4,h*4+4)));
-  return o;
+function positionPercent(x, start, end) {
+  return Math.max(0, Math.min(100, ((x - start) / (end - start)) * 100));
 }
 
-function safeArg(value){
-  if(value===null||value===undefined||typeof value==="number"||typeof value==="string"||typeof value==="boolean")return value;
-  if(ArrayBuffer.isView(value))return Array.from(value).slice(0,200);
-  if(Array.isArray(value))return value.slice(0,50).map(safeArg);
-  if(typeof value==="object"){
-    const out={};
-    Object.keys(value).slice(0,30).forEach(k=>{
-      try{out[k]=safeArg(value[k])}catch{}
+function minutesToClock(totalMinutes) {
+  const rounded = Math.round(totalMinutes / 15) * 15;
+  const hours24 = Math.floor(rounded / 60) % 24;
+  const minutes = rounded % 60;
+  const suffix = hours24 >= 12 ? "pm" : "am";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${String(minutes).padStart(2, "0")}${suffix}`;
+}
+
+function detectMealBreaks(items, row, timelineStart, timelineEnd) {
+  const slotWidth = (timelineEnd - timelineStart) / 72; // 06:00–24:00 in 15-minute cells
+
+  const markers = items
+    .filter(item =>
+      item.text === "X" &&
+      item.y - row.y >= 18 &&
+      item.y - row.y <= 32 &&
+      item.x >= timelineStart &&
+      item.x <= timelineEnd
+    )
+    .sort((a, b) => a.x - b.x);
+
+  const groups = [];
+  for (const marker of markers) {
+    const current = groups[groups.length - 1];
+    if (!current || marker.x - current[current.length - 1].x > slotWidth * 1.45) {
+      groups.push([marker]);
+    } else {
+      current.push(marker);
+    }
+  }
+
+  return groups
+    .filter(group => group.length >= 2)
+    .map(group => {
+      const rawStart = group[0].x - slotWidth / 2;
+      const rawEnd = group[group.length - 1].x + slotWidth / 2;
+      const startMinutes = 360 + ((rawStart - timelineStart) / slotWidth) * 15;
+      const endMinutes = 360 + ((rawEnd - timelineStart) / slotWidth) * 15;
+      return {
+        startX: rawStart,
+        endX: rawEnd,
+        startMinutes: Math.round(startMinutes / 15) * 15,
+        endMinutes: Math.round(endMinutes / 15) * 15,
+        markerCount: group.length
+      };
     });
-    return out;
+}
+
+async function readScoDemand(file) {
+  const page = await readFirstPdfPage(file);
+  const text = page.items.map(item => item.text).join(" ");
+  const match = text.match(/Self Checkout\s+Required\s+\d+\.\d+\s+((?:\d+\s+){50,80})/i);
+  if (!match) return Array(18).fill(0);
+
+  const quarterHours = match[1].trim().split(/\s+/).map(Number);
+  const hourly = [];
+  for (let hour = 0; hour < 18; hour++) {
+    hourly.push(Math.max(0, ...quarterHours.slice(hour * 4, hour * 4 + 4)));
   }
-  return String(value);
+  return hourly;
 }
 
-function buildDiagnostics(p, roster, x0, x1){
-  const textRows=roster.map((r,index)=>{
-    const nearby=p.items
-      .filter(i=>Math.abs(i.y-r.y)<=42)
-      .sort((a,b)=>a.y-b.y||a.x-b.x)
-      .map(i=>({
-        text:i.s,
-        x:+i.x.toFixed(1),
-        y:+i.y.toFixed(1),
-        deltaY:+(i.y-r.y).toFixed(1),
-        width:+i.w.toFixed(1),
-        height:+i.h.toFixed(1)
-      }));
-    return{
-      index:index+1,
-      name:r.name,
-      rowX:+r.x.toFixed(1),
-      rowY:+r.y.toFixed(1),
-      shift:shift(p.ctx,r.y+12,x0,x1),
-      nearbyText:nearby
-    };
-  });
+$("build").onclick = async () => {
+  try {
+    $("status").textContent = "Reading the reports and matching meal breaks…";
 
-  const operatorCounts={};
-  p.opList.fnArray.forEach(fn=>operatorCounts[fn]=(operatorCounts[fn]||0)+1);
+    const page = await readFirstPdfPage(state.grid);
+    const roster = findRosterRows(page.items);
+    const timelineStart = page.viewport.width * 0.205;
+    const timelineEnd = page.viewport.width * 0.98;
+    const rowsContainer = $("rows");
+    rowsContainer.innerHTML = "";
 
-  const sampledOperators=p.opList.fnArray.map((fn,index)=>({
-    index,
-    fn,
-    args:safeArg(p.opList.argsArray[index])
-  })).slice(0,2500);
+    let renderedRows = 0;
+    let detectedMeals = 0;
 
-  return{
-    build:"012-diagnostic",
-    generatedAt:new Date().toISOString(),
-    page:{width:p.vp.width,height:p.vp.height,pages:p.pdf.numPages},
-    timeline:{x0,x1},
-    textItemCount:p.items.length,
-    operatorCount:p.opList.fnArray.length,
-    operatorCounts,
-    rosterRows:textRows,
-    textItems:p.items.map(i=>({
-      index:i.index,text:i.s,x:+i.x.toFixed(1),y:+i.y.toFixed(1),
-      width:+i.w.toFixed(1),height:+i.h.toFixed(1)
-    })),
-    sampledOperators
-  };
-}
+    roster.slice(0, 15).forEach(person => {
+      const shift = detectShift(page.context, person.y + 12, timelineStart, timelineEnd);
+      if (!shift) return;
 
-function renderDebugTable(payload){
-  const box=$("debugReport");
-  box.innerHTML="";
-  payload.rosterRows.forEach(row=>{
-    const section=document.createElement("details");
-    section.open=row.index<=2;
-    const summary=document.createElement("summary");
-    summary.textContent=`${row.index}. ${row.name} · row Y ${row.rowY}`;
-    section.appendChild(summary);
-    const pre=document.createElement("pre");
-    pre.textContent=row.nearbyText.map(i=>
-      `${String(i.deltaY).padStart(6)}  x ${String(i.x).padStart(7)}  ${i.text}`
-    ).join("\n")||"No nearby text objects.";
-    section.appendChild(pre);
-    box.appendChild(section);
-  });
-}
+      const meals = detectMealBreaks(page.items, person, timelineStart, timelineEnd)
+        .filter(meal => meal.startX >= shift[0] - 12 && meal.endX <= shift[1] + 12);
 
-$("downloadDebug").onclick=()=>{
-  if(!diagnosticPayload)return;
-  const blob=new Blob([JSON.stringify(diagnosticPayload,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="front-end-companion-build-012-diagnostic.json";
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-};
+      detectedMeals += meals.length;
+      renderedRows++;
 
-$("build").onclick=async()=>{
-  try{
-    $("status").textContent="Reading reports and inspecting PDF structure…";
-    const p=await pdfPage(S.grid),r=rows(p.items),x0=p.vp.width*.205,x1=p.vp.width*.98;
-    $("rows").innerHTML="";
-    r.slice(0,15).forEach(v=>{
-      const sh=shift(p.ctx,v.y+12,x0,x1);
-      if(!sh)return;
-      const e=document.createElement("div");
-      e.className="row";
-      e.innerHTML=`<div class="person">${v.name}</div>
-        <div class="timeline"><i class="bar" style="left:${pct(sh[0],x0,x1)}%;right:${100-pct(sh[1],x0,x1)}%"></i></div>`;
-      $("rows").appendChild(e);
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const mealMarkup = meals.map(meal => {
+        const label = `${minutesToClock(meal.startMinutes)}–${minutesToClock(meal.endMinutes)}`;
+        return `<i class="meal" style="left:${positionPercent(meal.startX, timelineStart, timelineEnd)}%;right:${100 - positionPercent(meal.endX, timelineStart, timelineEnd)}%" title="Meal ${label}"><span>M</span></i>`;
+      }).join("");
+
+      const mealText = meals.length
+        ? meals.map(meal => `${minutesToClock(meal.startMinutes)}–${minutesToClock(meal.endMinutes)}`).join(", ")
+        : "";
+
+      row.innerHTML = `
+        <div class="person">
+          <strong>${person.name}</strong>
+          ${mealText ? `<small>Meal ${mealText}</small>` : ""}
+        </div>
+        <div class="timeline">
+          <i class="bar" style="left:${positionPercent(shift[0], timelineStart, timelineEnd)}%;right:${100 - positionPercent(shift[1], timelineStart, timelineEnd)}%"></i>
+          ${mealMarkup}
+        </div>`;
+
+      rowsContainer.appendChild(row);
     });
 
-    const txt=p.items.map(x=>x.s).join(" ");
-    const dm=txt.match(/Date:\s*(Monday,\s*\d+\s+\w+\s+\d{4})/i);
-    $("date").textContent=dm?dm[1]:"Monday";
-    const d=await demand(S.summary);
-    $("sco").innerHTML=d.map(n=>`<i class="dot ${n?"on":""}"></i>`).join("");
-    $("stats").textContent=`${document.querySelectorAll(".row").length} roster rows · ${p.pdf.numPages} grid pages`;
+    const pageText = page.items.map(item => item.text).join(" ");
+    const dateMatch = pageText.match(/Date:\s*(Monday,\s*\d+\s+\w+\s+\d{4})/i);
+    $("date").textContent = dateMatch ? dateMatch[1] : "Monday";
 
-    diagnosticPayload=buildDiagnostics(p,r.slice(0,15),x0,x1);
-    renderDebugTable(diagnosticPayload);
-    $("diagStats").textContent=
-      `${diagnosticPayload.textItemCount} text objects · ${diagnosticPayload.operatorCount} drawing operations`;
+    const scoDemand = await readScoDemand(state.summary);
+    $("sco").innerHTML = scoDemand.map(number =>
+      `<i class="dot ${number ? "on" : ""}">${number || ""}</i>`
+    ).join("");
 
-    $("setup").hidden=true;
-    $("result").hidden=false;
-  }catch(e){
-    console.error(e);
-    $("status").textContent="Could not read the reports. Please check both PDFs and try again.";
+    $("stats").textContent = `${renderedRows} roster rows · ${detectedMeals} meal breaks detected · ${page.pdf.numPages} grid pages`;
+    $("setup").hidden = true;
+    $("result").hidden = false;
+  } catch (error) {
+    console.error(error);
+    $("status").textContent = "Could not read the reports. Please check both PDFs and try again.";
   }
 };

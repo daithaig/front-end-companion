@@ -2,8 +2,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Front End Companion</title>
-<link rel="stylesheet" href="main.css?v=012">
-<link rel="stylesheet" href="print.css?v=012" media="print">
+<link rel="stylesheet" href="main.css?v=013">
+<link rel="stylesheet" href="print.css?v=013" media="print">
 <header>
   <b>STORE 2072 · ASCOT</b>
   <h1>Front End Companion</h1>
@@ -12,11 +12,11 @@
 <main>
   <section id="setup">
     <h2>Build Monday</h2>
-    <p class="buildnote">Build 012 · PDF diagnostic build</p>
+    <p class="buildnote">Build 013 · Row-locked meal break detection</p>
     <label>Daily Grid PDF<input id="grid" type="file" accept=".pdf"></label>
     <label>Daily Grid Summary PDF<input id="summary" type="file" accept=".pdf"></label>
     <p id="status">Choose both reports.</p>
-    <button id="build" disabled>Build & Inspect</button>
+    <button id="build" disabled>Build Monday</button>
   </section>
 
   <section id="result" hidden>
@@ -29,19 +29,12 @@
         <span>14</span><span>16</span><span>18</span><span>20</span><span>22</span>
       </div>
       <div id="rows"></div>
+      <div class="legend"><span class="legend-meal">M</span> Meal break</div>
       <div class="demand"><b>SCO TARGET</b><div id="sco"></div></div>
-      <footer>STORE 2072 · FRONT END COMPANION · BUILD 012</footer>
+      <footer>STORE 2072 · FRONT END COMPANION · BUILD 013</footer>
     </article>
-
-    <section class="diagnostic">
-      <h3>PDF Diagnostic Report</h3>
-      <p id="diagStats"></p>
-      <p>This build deliberately does not guess meal breaks. It records what the PDF exposes around each roster row.</p>
-      <button id="downloadDebug">Download diagnostic JSON</button>
-      <div id="debugReport"></div>
-    </section>
 
     <button onclick="location.reload()">Start again</button>
   </section>
 </main>
-<script type="module" src="app.js?v=012"></script>
+<script type="module" src="app.js?v=013"></script>
